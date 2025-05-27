@@ -1,0 +1,10 @@
+msal
+requests
+supabase
+storage3
+flask
+pandas
+bs4
+openai
+pyngrok
+apscheduler
