@@ -8,3 +8,4 @@ bs4
 openai
 pyngrok
 apscheduler
+dotenv

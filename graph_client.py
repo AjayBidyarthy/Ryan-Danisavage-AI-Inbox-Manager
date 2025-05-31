@@ -85,3 +85,31 @@ class GraphClient:
         response = requests.post(url, json={"destinationId": destination_folder_id}, headers={"Authorization": f"Bearer {self.token}"})
         if response.status_code not in [200, 201]:
             print(f"Error moving email {message_id}: {response.text}")
+    
+    def unsubscribe(self, subscription_id):
+        """
+            Deletes a subscription by its ID.
+            Returns True if successful, False otherwise.
+        """
+        if not self.token:
+            self.get_token()
+        
+        url = f"https://graph.microsoft.com/v1.0/subscriptions/{subscription_id}"
+        headers = {
+            "Authorization": f"Bearer {self.token}"
+        }
+
+        resp = requests.delete(url, headers=headers)
+        if resp.status_code == 204:
+            print(f"Subscription {subscription_id} successfully deleted")
+            return True
+        else:
+            print(f"Failed to delete subscription {subscription_id}: {resp.status_code} {resp.text}")
+            # In case the token expired, try refreshing once
+            if resp.status_code == 401:
+                self.get_token()
+                resp = requests.delete(url, headers={"Authorization": f"Bearer {self.token}"})
+                if resp.status_code == 204:
+                    print(f"Subscription {subscription_id} successfully deleted after token refresh.")
+                    return True
+            return False

@@ -92,3 +92,16 @@ def store_contact_change(old_email: str, new_email: str, new_name: str):
 
 def store_unsubscribe_email(email: str):
     supabase.table("unsubscribe_emails").insert({"email": email}).execute()
+
+def update_file_data(file_id: str, rows: list[dict], fieldnames: list[str]):
+    """
+    Updates the list_files table with new CSV data encoded in hex, prefixed with \\x.
+    """
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_string = output.getvalue()
+    hex_string = "\\x" + csv_string.encode("utf-8").hex()
+
+    supabase.table("list_files").update({"file_data": hex_string}).eq("id", file_id).execute()
