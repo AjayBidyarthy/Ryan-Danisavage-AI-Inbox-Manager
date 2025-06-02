@@ -1,4 +1,5 @@
 import io
+import logging
 import pandas as pd
 
 from supabase_client import (
@@ -7,8 +8,10 @@ from supabase_client import (
     fetch_file_record,
     decode_file_data_hex,
     upload_master_list,
-    download_master_list,
+    delete_master_list
 )
+
+logger = logging.getLogger(__name__)
 
 class RecipientListLoaderError(Exception):
     pass
@@ -65,10 +68,13 @@ def compile_and_store_master_list(user_email: str) -> None:
     """
     Fetch, decode, and combine all of a user's recipient lists,
     then upload the concatenated CSV to Supabase Storage.
+    If no lists are present, remove any existing master list.
     """
     lists = load_user_recipient_lists(user_email)
     if not lists:
-        raise RecipientListLoaderError(f"No lists to compile for {user_email}")
+        logger.info("No recipient lists found for %s. Deleting master list if it exists.", user_email)
+        delete_master_list(user_email)
+        return
 
     master_df = pd.concat(lists.values(), ignore_index=True)
 

@@ -1,11 +1,16 @@
 import threading
 import time
-# from pyngrok import ngrok
+import logging
 from webhook_listener import app
 from graph_client import GraphClient
-from poll_audit_changes import poll_audit_log
 from daily_contact_updater import run_daily_updates
 from apscheduler.schedulers.background import BackgroundScheduler
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 # Initial user emails to subscribe on startup (optional)
 USER_EMAILS = [
@@ -15,9 +20,6 @@ USER_EMAILS = [
 def run_flask():
     app.run(host="0.0.0.0", port=80)
 
-def run_polling():
-    poll_audit_log()
-
 def main():
     # 1. Start Flask in a separate thread
     flask_thread = threading.Thread(target=run_flask, daemon=True)
@@ -25,12 +27,15 @@ def main():
     time.sleep(2)  # Give Flask time to start
 
     # 2. Ngrok tunnel for public URLs
-    public_url = r"https://aware-fluent-falcon.ngrok-free.app"
+    public_url = r"https://flexible-creative-boxer.ngrok-free.app"
     notification_url = f"{public_url}/notification"
     user_toggle_url = f"{public_url}/user_toggle"
-    print(f"Ngrok Notification URL: {notification_url}")
-    print(f"Ngrok User Toggle URL: {user_toggle_url}")
-
+    company_list_update_url = f"{public_url}/company_list_update"
+    
+    logging.info(f"Ngrok Notification URL: {notification_url}")
+    logging.info(f"Ngrok User Toggle URL: {user_toggle_url}")
+    logging.info(f"Ngrok Company List Update URL: {company_list_update_url}")
+    
     # 3. Initialize Graph client and subscribe initial emails
     graph = GraphClient()
     subscription_map = {}
@@ -38,31 +43,31 @@ def main():
         sub = graph.subscribe_to_mail(notification_url, email)
         if sub and "id" in sub:
             subscription_map[sub["id"]] = email
-            print(f"Subscribed {email} -> {sub['id']}")
+            logging.info(f"Subscribed {email} -> {sub['id']}")
         else:
-            print(f"Failed to subscribe {email}")
+            logging.warning(f"Failed to subscribe {email}")
 
     # 4. Save objects in Flask app config for access in endpoints
     app.config["SUBSCRIPTION_MAP"] = subscription_map
     app.config["GRAPH_CLIENT"] = graph
     app.config["PUBLIC_URL"] = public_url
 
-    # 5. Start polling thread for audit logs (optional if you still want to poll)
-    polling_thread = threading.Thread(target=run_polling, daemon=True)
-    polling_thread.start()
+    # 5. (Optional) Start polling thread for audit logs
+    # polling_thread = threading.Thread(target=run_polling, daemon=True)
+    # polling_thread.start()
 
     # 6. Schedule any daily jobs if needed
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_daily_updates, 'interval', minutes=2)
+    scheduler.add_job(run_daily_updates, 'interval', hours=12)
     scheduler.start()
 
-    print("Listening for notifications and user toggle webhooks...")
+    logging.info("Listening for notifications and webhooks...")
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("Shutting down…")
+        logging.info("Shutting down…")
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,9 @@
+import json
+import logging
 from openai import OpenAI
 from config import OPENAI_API_KEY
 
+logger = logging.getLogger(__name__)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def extract_new_contact_info(email_body: str) -> dict:
@@ -28,8 +31,13 @@ leave empty for any entry that is not found and move to next line
         max_tokens=100,
         temperature=0.3
     )
+    content = response.choices[0].message.content.strip()
     try:
-        return eval(response.choices[0].message.content.strip())
+        # Use json.loads instead of eval for security
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error parsing contact info: {e}\nResponse was: {content}")
+        return {}
     except Exception as e:
-        print(f"Error parsing contact info: {e}")
+        logger.error(f"Unexpected error parsing contact info: {e}")
         return {}

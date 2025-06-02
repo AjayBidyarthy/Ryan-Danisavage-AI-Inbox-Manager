@@ -1,10 +1,13 @@
 import binascii
 import csv
+import logging
 from io import BytesIO, StringIO
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_KEY
-import logging
 from storage3.exceptions import StorageApiError
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -57,7 +60,7 @@ def upload_master_list(user_email: str, csv_bytes: bytes) -> bool:
         supabase.storage.from_(bucket).upload(path, csv_bytes, file_options)
         return True
     except StorageApiError as e:
-        logging.error(f"Failed to upload master list for {user_email}: {e}")
+        logger.error("Failed to upload master list for %s: %s", user_email, e)
         return False
 
 def download_master_list(user_email: str) -> bytes | None:
@@ -105,3 +108,20 @@ def update_file_data(file_id: str, rows: list[dict], fieldnames: list[str]):
     hex_string = "\\x" + csv_string.encode("utf-8").hex()
 
     supabase.table("list_files").update({"file_data": hex_string}).eq("id", file_id).execute()
+
+def delete_master_list(user_email: str) -> bool:
+    """
+    Deletes the master list CSV from Supabase Storage if it exists.
+    Returns True if successful or not found, False on error.
+    """
+    try:
+        path = f"{user_email}/master_list.csv"
+        deleted_files = supabase.storage.from_("master-lists").remove([path])
+        if not deleted_files:
+            logger.info("Master list file not found or already deleted for %s", user_email)
+        else:
+            logger.info("Master list deleted for %s", user_email)
+        return True
+    except Exception as e:
+        logger.error("Error deleting master list for %s: %s", user_email, e)
+        return False

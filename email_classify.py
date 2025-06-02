@@ -1,5 +1,8 @@
+import logging
 from config import OPENAI_API_KEY
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -30,11 +33,17 @@ Here is the email:
 """
 
 def classify_email(email_text: str) -> str:
-    messages = [{"role": "user", "content": prompt_template.format(email=email_text)}]
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        max_tokens=20,
-        temperature=0.3
-    )
-    return response.choices[0].message.content.strip()
+    try:
+        messages = [{"role": "user", "content": prompt_template.format(email=email_text)}]
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=20,
+            temperature=0.3
+        )
+        classification = response.choices[0].message.content.strip()
+        logger.info(f"Email classified as: {classification}")
+        return classification
+    except Exception as e:
+        logger.error(f"Error during email classification: {e}")
+        return "Primary"  # default fallback
