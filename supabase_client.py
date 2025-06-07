@@ -80,7 +80,7 @@ def is_email_in_master_list(user_email: str, sender_email: str) -> bool:
     csv_reader = csv.DictReader(StringIO(csv_text))
 
     for row in csv_reader:
-        email = row.get("email") or row.get("Email") or row.get("EMAIL")
+        email = row.get("email") or row.get("Email") or row.get("EMAIL") or row.get('Email ID') or row.get('email id')
         if email and email.strip().lower() == sender_email.lower():
             return True
 

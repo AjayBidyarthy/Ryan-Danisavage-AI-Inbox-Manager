@@ -5,6 +5,7 @@ from supabase_client import is_email_in_master_list, store_contact_change, store
 from bs4 import BeautifulSoup  # type: ignore
 from email_classify import classify_email
 from contact_extract import extract_new_contact_info
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,12 @@ def extract_actual_body(html_body: str) -> str:
     ]
     return "\n".join(filter(None, cleaned_lines)).strip()
 
+def extract_original_sender(forwarded_body: str) -> str:
+    # Look for patterns like "From: John Smith <john@example.com>"
+    match = re.search(r"From:\s+.*?<([^@\s]+@[^>\s]+)>", forwarded_body, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return ""
 
 def process_email_notification(resource_url, user_email):
     logger.info(f"Fetching email details for: {resource_url}")
@@ -40,7 +47,6 @@ def process_email_notification(resource_url, user_email):
 
     data = response.json()
 
-    # Extract message ID
     message_id = data.get("id")
     if not message_id:
         logger.warning("No message ID found, skipping.")
@@ -50,7 +56,6 @@ def process_email_notification(resource_url, user_email):
         logger.info(f"Duplicate message {message_id}, skipping.")
         return
 
-    # Mark as processed
     processed_message_ids.add(message_id)
 
     sender_email = data.get("from", {}).get("emailAddress", {}).get("address", "")
@@ -58,7 +63,16 @@ def process_email_notification(resource_url, user_email):
     body = data.get("body", {}).get("content", "")
     clean_body = extract_actual_body(body)
 
-    logger.debug(f"From: {sender_email}\nSubject: {subject}\nBody: {clean_body}")
+    logger.debug(f"Initial From: {sender_email}\nSubject: {subject}\nBody: {clean_body}")
+
+    # If email is from replies alias, try to extract original sender
+    if sender_email.endswith("@danisavagereplies.com"):
+        original_sender = extract_original_sender(clean_body)
+        if original_sender:
+            logger.info(f"Detected forwarded email. Original sender: {original_sender}")
+            sender_email = original_sender
+        else:
+            logger.warning("Could not detect original sender in forwarded message.")
 
     classification = classify_email(clean_body)
     logger.info(f"Email classified as: {classification}")

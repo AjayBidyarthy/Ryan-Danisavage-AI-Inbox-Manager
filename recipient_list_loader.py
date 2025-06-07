@@ -65,6 +65,7 @@ def load_user_recipient_lists(user_email: str) -> dict[str, pd.DataFrame]:
     return lists
 
 def compile_and_store_master_list(user_email: str) -> None:
+    logger.info(f"Started compiling master list for {user_email}")
     """
     Fetch, decode, and combine all of a user's recipient lists,
     then upload the concatenated CSV to Supabase Storage.

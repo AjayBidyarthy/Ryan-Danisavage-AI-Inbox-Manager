@@ -23,6 +23,7 @@ Respond in the following JSON format:
   "new_contact_email": "email@example.com"
 }}
 leave empty for any entry that is not found and move to next line
+Only respond with the JSON object and nothing else.
 """
     messages = [{"role": "user", "content": prompt}]
     response = client.chat.completions.create(
@@ -32,6 +33,7 @@ leave empty for any entry that is not found and move to next line
         temperature=0.3
     )
     content = response.choices[0].message.content.strip()
+    content = content.strip("`").strip()
     try:
         # Use json.loads instead of eval for security
         return json.loads(content)

@@ -2,21 +2,36 @@ import csv
 import io
 import logging
 from supabase_client import supabase, decode_file_data_hex, update_file_data
-from config import SUPABASE_URL, SUPABASE_KEY
+# from config import SUPABASE_URL, SUPABASE_KEY
+from recipient_list_loader import compile_and_store_master_list
 
 logger = logging.getLogger(__name__)
 
 def find_email_key(headers: list[str]) -> str | None:
     for h in headers:
-        if h.lower() == 'email' or h.lower()=='email id':
+        if h.lower() in ('email', 'email id'):
             return h
     return None
 
-def find_name_key(headers: list[str], target: str) -> str | None:
+def find_name_key(headers: list[str]) -> str | None:
     for h in headers:
-        if h.lower() == 'name' or h.lower()=='contact name':
+        if h.lower() in ('name', 'contact name'):
             return h
     return None
+
+def update_affected_users(file_id: str):
+    links = supabase.table("company_recipient_lists").select("user_id").eq("file_id", file_id).execute().data
+    for link in links:
+        user_id = link["user_id"]
+        user = supabase.table("users").select("email").eq("id", user_id).single().execute().data
+        if user:
+            try:
+                compile_and_store_master_list(user["email"])
+                logger.info(f"Updated master list for affected user {user['email']}")
+                print(f"Updated master list for affected user {user['email']}")
+            except Exception as e:
+                logger.error(f"Failed to update master list for {user['email']}: {e}")
+                print(f"Failed to master list for affected user {user['email']}")
 
 def process_unsubscribes():
     try:
@@ -38,6 +53,7 @@ def process_unsubscribes():
 
                 if len(updated_rows) < sum(1 for _ in csv.DictReader(io.StringIO(file_data))):
                     update_file_data(file["id"], updated_rows, reader.fieldnames)
+                    update_affected_users(file["id"])
 
                     # Propagate to renamed files
                     renames = supabase.table("renamed_files").select("new_file_id").eq("original_file_id", file["id"]).execute().data
@@ -51,6 +67,7 @@ def process_unsubscribes():
                             continue
                         renamed_rows = [row for row in renamed_reader if row.get(renamed_email_key) != email]
                         update_file_data(renamed_file["id"], renamed_rows, renamed_reader.fieldnames)
+                        update_affected_users(renamed_file["id"])
 
             supabase.table("unsubscribe_emails").delete().eq("id", entry["id"]).execute()
     except Exception as e:
@@ -89,6 +106,7 @@ def process_contact_changes():
 
                 if modified:
                     update_file_data(file["id"], updated_rows, reader.fieldnames)
+                    update_affected_users(file["id"])
 
                     # Propagate to renamed files
                     renames = supabase.table("renamed_files").select("new_file_id").eq("original_file_id", file["id"]).execute().data
@@ -112,16 +130,19 @@ def process_contact_changes():
 
                         if renamed_modified:
                             update_file_data(renamed_file["id"], renamed_rows, renamed_reader.fieldnames)
+                            update_affected_users(renamed_file["id"])
 
             supabase.table("contact_changes").delete().eq("id", change["id"]).execute()
     except Exception as e:
         logger.error(f"Error processing contact changes: {e}")
+        print(f"Error processing contact changes: {e}")
 
 
-def run_daily_updates():
-    logger.info("Starting daily contact updates...")
+def run_regular_updates():
+    logger.info("Starting regular contact updates...")
+    print(("Starting regular contact updates..."))
     process_unsubscribes()
     process_contact_changes()
-    logger.info("Completed daily contact updates.")
+    logger.info("Completed regular contact updates.")
     
-# run_daily_updates()
+run_regular_updates()

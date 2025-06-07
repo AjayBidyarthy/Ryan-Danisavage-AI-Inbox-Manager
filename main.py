@@ -3,7 +3,7 @@ import time
 import logging
 from webhook_listener import app
 from graph_client import GraphClient
-from daily_contact_updater import run_daily_updates
+from daily_contact_updater import run_regular_updates
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Configure logging
@@ -14,13 +14,17 @@ logging.basicConfig(
 
 # Initial user emails to subscribe on startup (optional)
 USER_EMAILS = [
-    "conference@danisavage.com"
+    "conference@danisavage.com",
+    "tdanisavage@danisavage.com",
+    "rdanisavage@danisavage.com",
+    "kdanisavage@danisavage.com"
 ]
 
 def run_flask():
     app.run(host="0.0.0.0", port=80)
 
 def main():
+
     # 1. Start Flask in a separate thread
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
@@ -58,7 +62,7 @@ def main():
 
     # 6. Schedule any daily jobs if needed
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_daily_updates, 'interval', hours=12)
+    scheduler.add_job(run_regular_updates, 'interval', minutes = 1)
     scheduler.start()
 
     logging.info("Listening for notifications and webhooks...")
