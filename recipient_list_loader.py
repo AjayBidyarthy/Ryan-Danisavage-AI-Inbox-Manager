@@ -52,7 +52,7 @@ def load_user_recipient_lists(user_email: str) -> dict[str, pd.DataFrame]:
         raise RecipientListLoaderError(f"No user found for email: {user_email}")
 
     lists: dict[str, pd.DataFrame] = {}
-    file_ids = get_user_company_file_ids(user_id)
+    file_ids = list(set(get_user_company_file_ids(user_id))) # deduplicated list
 
     for fid in file_ids:
         record = fetch_file_record(fid)
